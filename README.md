@@ -47,12 +47,10 @@ BuExSeHeCheck helps penetration testers and security engineers quickly analyze H
 
 ## 🖼 Screenshots
 
-> Add screenshots in the `screenshots/` directory and reference them below.
-
 ### 🔹 Main Interface
 ![Main Interface](screenshots/main-ui.png)
 
-### 🔹 Send from HTTP History
+### 🔹 Send from HTTP History / Repeater
 ![Context Menu](screenshots/context-menu.png)
 
 ---
