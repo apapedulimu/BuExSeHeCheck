@@ -1,47 +1,96 @@
 # 🔎 BuExSeHeCheck  
 **Burp Extension – Security Header Checker**
 
-Burp Suite extension to analyze HTTP security headers with color-coded results and request/response context.
+BuExSeHeCheck is a Burp Suite extension for **interactive, pentester-driven analysis of HTTP security headers**, providing color-coded results with full request/response context.
 
-BuExSeHeCheck helps penetration testers and security engineers quickly analyze HTTP response security headers directly from Burp’s HTTP history, providing clear visibility into missing and misconfigured headers.
+It is designed to fit naturally into real-world penetration testing workflows, similar to Burp’s HTTP History and Repeater.
 
 ---
 
 ## ✨ Features
 
-- 📤 **Send from HTTP History**
-  - Right-click any request and select **“Send to Security Header Checker”**
+### 📤 Send from Burp Tools
+- Right-click any request in:
+  - Proxy → HTTP history
+  - Repeater
+- Select **“Send to BuExSeHeCheck”** to analyze the response
 
-- 🧾 **Request & Response Viewer**
-  - Displays the exact HTTP request and response sent to the tool
-  - View-only (non-editable)
+---
 
-- 🔍 **Security Header Analysis**
-  - Checks the following headers:
-    - X-Frame-Options
-    - X-Content-Type-Options
-    - Strict-Transport-Security
-    - Content-Security-Policy
-    - Referrer-Policy
-    - Permissions-Policy
-    - Cross-Origin-Embedder-Policy
-    - Cross-Origin-Resource-Policy
-    - Cross-Origin-Opener-Policy
+### 🧾 Request & Response Context
+- Displays the **exact HTTP request and response** sent to the extension
+- Read-only (non-editable), matching Burp’s native viewers
+- Cleared automatically when results are cleared
 
-- 🟥🟩 **Color-Coded Results**
-  - 🟢 Green → Header present
-  - 🔴 Red → Header missing
-  - Content-Security-Policy values displayed in a readable, multi-line format
+---
 
-- 🧹 **Clear Results**
-  - Clears:
-    - Analysis results
-    - Request viewer
-    - Response viewer
-  - Prevents stale or misleading data
+### 🔍 Security Header Analysis
+- Default headers checked:
+  - X-Frame-Options
+  - X-Content-Type-Options
+  - Strict-Transport-Security
+  - Content-Security-Policy
+  - Referrer-Policy
+  - Permissions-Policy
+  - Cross-Origin-Embedder-Policy
+  - Cross-Origin-Resource-Policy
+  - Cross-Origin-Opener-Policy
 
-- 🖥 **Dedicated Burp Tab**
-  - Appears as **“Sec Headers”** in Burp Suite
+- Header matching is **case-insensitive**
+  - `X-Frame-Options`, `x-frame-options`, and `X-FRAME-OPTIONS` are treated equally
+
+---
+
+### 🛠 Adjustable Header List
+- Add or remove security headers directly from the UI
+- Header list updates are reflected immediately in analysis
+- Useful for:
+  - Custom hardening standards
+  - Client-specific requirements
+  - Emerging security headers
+
+---
+
+### ⚠️ Deprecated Header Detection (Toggleable)
+- Optional detection of deprecated HTTP security headers:
+  - `X-XSS-Protection`
+  - `Public-Key-Pins`
+  - `Expect-CT`
+  - `Feature-Policy`
+
+- Controlled via a checkbox:
+  - ON → Deprecated headers are detected and reported
+  - OFF → Deprecated headers are ignored
+
+- **Auto-reload behavior**
+  - Toggling the option immediately re-analyzes the last request
+  - No need to resend the request
+
+---
+
+### 🟥🟩 Color-Coded Results
+- 🟢 **Green** → Header present
+- 🔴 **Red** → Header missing
+- 🟠 **Orange** → Deprecated header detected
+- Content-Security-Policy values are displayed in a readable, multi-line format
+
+---
+
+### 🧹 Clear Results
+- Clears:
+  - Analysis output
+  - Request viewer
+  - Response viewer
+- Prevents stale data and accidental misinterpretation
+
+---
+
+### 🖥 Dedicated Burp Tab
+- Appears as **“Sec Headers”** inside Burp Suite
+- Adjustable layout:
+  - Security header list
+  - Request / response viewers
+  - Analysis results
 
 ---
 
@@ -57,14 +106,24 @@ BuExSeHeCheck helps penetration testers and security engineers quickly analyze H
 
 ## 🔐 Why BuExSeHeCheck?
 
-Security headers are frequently:
+Security headers are often:
 - Missing
-- Misconfigured
-- Inconsistently applied across endpoints
+- Inconsistently applied
+- Misunderstood or deprecated
 
-BuExSeHeCheck helps you:
+BuExSeHeCheck helps penetration testers and security engineers:
 - Quickly validate security hardening
 - Reduce manual inspection effort
-- Improve accuracy during web penetration tests
+- Avoid false positives caused by header case differences
+- Detect legacy and deprecated defenses
+- Maintain accuracy in professional security assessments
 
 ---
+
+## 🧠 Design Philosophy
+- Manual, analyst-driven execution
+- No passive scanning
+- No noisy automation
+- Clear visibility and control
+
+Built **by pentesters, for pentesters**.

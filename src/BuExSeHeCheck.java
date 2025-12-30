@@ -18,8 +18,23 @@ public class BuExSeHeCheck implements IBurpExtender, ITab, IContextMenuFactory {
     private IMessageEditor responseViewer;
 
     private JTextPane resultPane;
-
     private HeaderTableModel headerModel;
+
+    private JCheckBox deprecatedToggle;
+
+    // Store last analyzed message for auto-refresh
+    private IHttpRequestResponse lastMessage;
+
+    // =========================
+    // DEPRECATED HEADERS
+    // =========================
+    private static final Map<String, String> DEPRECATED_HEADERS = new LinkedHashMap<>();
+    static {
+        DEPRECATED_HEADERS.put("x-xss-protection", "Deprecated – ignored by modern browsers");
+        DEPRECATED_HEADERS.put("public-key-pins", "Deprecated – HPKP is unsafe");
+        DEPRECATED_HEADERS.put("expect-ct", "Deprecated – no longer enforced");
+        DEPRECATED_HEADERS.put("feature-policy", "Deprecated – replaced by Permissions-Policy");
+    }
 
     // =========================
     // BURP ENTRY POINT
@@ -69,9 +84,20 @@ public class BuExSeHeCheck implements IBurpExtender, ITab, IContextMenuFactory {
             }
         });
 
+        deprecatedToggle = new JCheckBox("Detect deprecated headers");
+        deprecatedToggle.setSelected(true);
+
+        // 🔥 AUTO-RELOAD ON TOGGLE
+        deprecatedToggle.addActionListener(e -> {
+            if (lastMessage != null) {
+                analyze(lastMessage);
+            }
+        });
+
         JPanel headerBtnPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         headerBtnPanel.add(addHeaderBtn);
         headerBtnPanel.add(removeHeaderBtn);
+        headerBtnPanel.add(deprecatedToggle);
 
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBorder(BorderFactory.createTitledBorder("Security Headers"));
@@ -105,7 +131,6 @@ public class BuExSeHeCheck implements IBurpExtender, ITab, IContextMenuFactory {
         resultPanel.add(resultScroll, BorderLayout.CENTER);
         resultPanel.add(clearBtn, BorderLayout.SOUTH);
 
-        // ===== Message + Results split =====
         JSplitPane messageResultSplit = new JSplitPane(
                 JSplitPane.VERTICAL_SPLIT,
                 messageSplit,
@@ -113,7 +138,6 @@ public class BuExSeHeCheck implements IBurpExtender, ITab, IContextMenuFactory {
         );
         messageResultSplit.setResizeWeight(0.65);
 
-        // ===== Header + Main Content split =====
         JSplitPane headerMainSplit = new JSplitPane(
                 JSplitPane.VERTICAL_SPLIT,
                 headerPanel,
@@ -133,10 +157,8 @@ public class BuExSeHeCheck implements IBurpExtender, ITab, IContextMenuFactory {
     }
 
     private void clearAll() {
-
+        lastMessage = null;
         resultPane.setText("");
-        resultPane.setCaretPosition(0);
-
         requestViewer.setMessage(new byte[0], true);
         responseViewer.setMessage(new byte[0], false);
     }
@@ -166,7 +188,10 @@ public class BuExSeHeCheck implements IBurpExtender, ITab, IContextMenuFactory {
         }
 
         JMenuItem item = new JMenuItem("Send to BuExSeHeCheck");
-        item.addActionListener(e -> analyze(messages[0]));
+        item.addActionListener(e -> {
+            lastMessage = messages[0];
+            analyze(lastMessage);
+        });
 
         return Collections.singletonList(item);
     }
@@ -185,7 +210,10 @@ public class BuExSeHeCheck implements IBurpExtender, ITab, IContextMenuFactory {
         for (String h : respInfo.getHeaders()) {
             int i = h.indexOf(":");
             if (i > 0) {
-                respHeaders.put(h.substring(0, i).trim(), h.substring(i + 1).trim());
+                respHeaders.put(
+                        h.substring(0, i).trim().toLowerCase(),
+                        h.substring(i + 1).trim()
+                );
             }
         }
 
@@ -193,40 +221,46 @@ public class BuExSeHeCheck implements IBurpExtender, ITab, IContextMenuFactory {
 
         StringBuilder html = new StringBuilder();
         html.append("<html><body style='font-family:monospace;'>");
-        html.append("<b>======================================================</b><br>");
         html.append("<b>BuExSeHeCheck – Security Header Checker</b><br>");
-        html.append("<b>======================================================</b><br><br>");
         html.append("<b>Analyzing:</b> ").append(url).append("<br><br>");
 
-        int present = 0, missing = 0;
+        int present = 0, missing = 0, deprecated = 0;
 
         for (String header : headerModel.getHeaders()) {
-            String value = respHeaders.get(header);
+            String value = respHeaders.get(header.toLowerCase());
 
             if (value == null) {
-                html.append("<span style='color:red;'>[!] Missing security header: ")
+                html.append("<span style='color:red;'>[!] Missing: ")
                         .append(header).append("</span><br>");
                 missing++;
             } else {
-                html.append("<span style='color:green;'>[*] Header ")
-                        .append(header).append(" is present</span><br>");
-
-                html.append("<div style='margin-left:20px;color:#999;'>");
-                if (header.equalsIgnoreCase("Content-Security-Policy")) {
-                    for (String part : value.split(";")) {
-                        html.append(part.trim()).append("<br>");
-                    }
-                } else {
-                    html.append(value);
-                }
-                html.append("</div>");
+                html.append("<span style='color:green;'>[*] Present: ")
+                        .append(header).append("</span><br>");
+                html.append("<div style='margin-left:20px;color:#999;'>")
+                        .append(value).append("</div>");
                 present++;
             }
         }
 
-        html.append("<br><b>------------------------------------------------------</b><br>");
+        if (deprecatedToggle.isSelected()) {
+            for (String dh : DEPRECATED_HEADERS.keySet()) {
+                if (respHeaders.containsKey(dh)) {
+                    html.append("<span style='color:orange;'>[!] Deprecated header detected: ")
+                            .append(dh).append("</span><br>");
+                    html.append("<div style='margin-left:20px;color:#cc8400;'>")
+                            .append(DEPRECATED_HEADERS.get(dh))
+                            .append("</div>");
+                    deprecated++;
+                }
+            }
+        }
+
+        html.append("<br><b>Summary</b><br>");
         html.append("[+] Present: ").append(present).append("<br>");
         html.append("[-] Missing: ").append(missing).append("<br>");
+        if (deprecatedToggle.isSelected()) {
+            html.append("[!] Deprecated: ").append(deprecated).append("<br>");
+        }
         html.append("</body></html>");
 
         resultPane.setText(html.toString());
@@ -238,7 +272,7 @@ public class BuExSeHeCheck implements IBurpExtender, ITab, IContextMenuFactory {
     // =========================
     private static class HeaderTableModel extends AbstractTableModel {
 
-        private final java.util.List<String> headers = new ArrayList<>(Arrays.asList(
+        private final List<String> headers = new ArrayList<>(Arrays.asList(
                 "X-Frame-Options",
                 "X-Content-Type-Options",
                 "Strict-Transport-Security",
@@ -280,7 +314,7 @@ public class BuExSeHeCheck implements IBurpExtender, ITab, IContextMenuFactory {
             fireTableDataChanged();
         }
 
-        public java.util.List<String> getHeaders() {
+        public List<String> getHeaders() {
             return headers;
         }
     }
