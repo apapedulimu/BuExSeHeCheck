@@ -94,6 +94,35 @@ It is designed to fit naturally into real-world penetration testing workflows, s
 
 ---
 
+## 📦 Installation
+
+1. Download `BuExSeHeCheck.jar` from the [latest release](https://github.com/apapedulimu/BuExSeHeCheck/releases/latest).
+2. In Burp Suite: **Extensions → Installed → Add**
+3. Extension type: **Java**, select the downloaded `.jar`, click **Next**.
+
+Tested on **Burp Suite 2026.8.0**. Requires Burp's bundled Java runtime (Java 17+).
+
+---
+
+## 🔨 Build from source
+
+```bash
+git clone https://github.com/apapedulimu/BuExSeHeCheck.git
+cd BuExSeHeCheck
+./build.sh
+# -> build/BuExSeHeCheck.jar
+```
+
+Burp 2026.x ships Java 21 class files, so `burpsuite.jar` cannot be read by a JDK 17
+`javac`. The script compiles with a **JDK 21+** `javac` and emits Java 17 bytecode via
+`--release 17`. If Burp is installed somewhere non-standard:
+
+```bash
+BURP_JAR=/path/to/burpsuite.jar ./build.sh
+```
+
+---
+
 ## 🖼 Screenshots
 
 ### 🔹 Main Interface

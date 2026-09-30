@@ -7,7 +7,7 @@ import java.awt.*;
 import java.util.*;
 import java.util.List;
 
-public class BuExSeHeCheck implements IBurpExtender, ITab, IContextMenuFactory {
+public class BuExSeHeCheck implements IBurpExtender, ITab, IContextMenuFactory, IMessageEditorController {
 
     private IBurpExtenderCallbacks callbacks;
     private IExtensionHelpers helpers;
@@ -105,8 +105,10 @@ public class BuExSeHeCheck implements IBurpExtender, ITab, IContextMenuFactory {
         headerPanel.add(headerBtnPanel, BorderLayout.SOUTH);
 
         // ===== Request / Response =====
-        requestViewer = callbacks.createMessageEditor(null, false);
-        responseViewer = callbacks.createMessageEditor(null, false);
+        // Burp >= 2026.x dereferences the controller while building the editor's
+        // tabs, so passing null leaves both viewers blank with no error logged.
+        requestViewer = callbacks.createMessageEditor(this, false);
+        responseViewer = callbacks.createMessageEditor(this, false);
 
         JSplitPane messageSplit = new JSplitPane(
                 JSplitPane.HORIZONTAL_SPLIT,
@@ -157,10 +159,30 @@ public class BuExSeHeCheck implements IBurpExtender, ITab, IContextMenuFactory {
     }
 
     private void clearAll() {
-        lastMessage = null;
         resultPane.setText("");
-        requestViewer.setMessage(new byte[0], true);
-        responseViewer.setMessage(new byte[0], false);
+        if (lastMessage != null) {
+            requestViewer.setMessage(new byte[0], true);
+            responseViewer.setMessage(new byte[0], false);
+        }
+        lastMessage = null;
+    }
+
+    // =========================
+    // MESSAGE EDITOR CONTROLLER
+    // =========================
+    @Override
+    public IHttpService getHttpService() {
+        return lastMessage == null ? null : lastMessage.getHttpService();
+    }
+
+    @Override
+    public byte[] getRequest() {
+        return lastMessage == null ? null : lastMessage.getRequest();
+    }
+
+    @Override
+    public byte[] getResponse() {
+        return lastMessage == null ? null : lastMessage.getResponse();
     }
 
     // =========================
@@ -188,10 +210,7 @@ public class BuExSeHeCheck implements IBurpExtender, ITab, IContextMenuFactory {
         }
 
         JMenuItem item = new JMenuItem("Send to BuExSeHeCheck");
-        item.addActionListener(e -> {
-            lastMessage = messages[0];
-            analyze(lastMessage);
-        });
+        item.addActionListener(e -> analyze(messages[0]));
 
         return Collections.singletonList(item);
     }
@@ -201,10 +220,25 @@ public class BuExSeHeCheck implements IBurpExtender, ITab, IContextMenuFactory {
     // =========================
     private void analyze(IHttpRequestResponse message) {
 
-        requestViewer.setMessage(message.getRequest(), true);
-        responseViewer.setMessage(message.getResponse(), false);
+        // Set first: the viewers ask the controller for context as they render.
+        lastMessage = message;
 
-        IResponseInfo respInfo = helpers.analyzeResponse(message.getResponse());
+        byte[] request = message.getRequest();
+        byte[] response = message.getResponse();
+
+        requestViewer.setMessage(request == null ? new byte[0] : request, true);
+        responseViewer.setMessage(response == null ? new byte[0] : response, false);
+
+        if (response == null) {
+            resultPane.setText("<html><body style='font-family:monospace;'>"
+                    + "<b>BuExSeHeCheck \u2013 Security Header Checker</b><br><br>"
+                    + "<span style='color:red;'>[!] This item has no response to analyze.</span>"
+                    + "</body></html>");
+            resultPane.setCaretPosition(0);
+            return;
+        }
+
+        IResponseInfo respInfo = helpers.analyzeResponse(response);
 
         Map<String, String> respHeaders = new HashMap<>();
         for (String h : respInfo.getHeaders()) {
